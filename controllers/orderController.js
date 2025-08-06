@@ -4,38 +4,56 @@ const Product = require("../models/product");
 exports.createOrder = async (req, res) => {
   try {
     const { products } = req.body;
-    const user = req.user.clientId;
 
-    if (!products || products.length === 0) {
-      return res.status(400).json({ message: "No products provided" });
+    const productIds = products.map((p) => p.productId);
+    const dbProducts = await Product.find({ _id: { $in: productIds } });
+
+    if (dbProducts.length !== products.length) {
+      return res.status(404).json({ message: "Ürünlerden biri bulunamadı" });
     }
 
-    let totalAmount = 0;
-    for (const item of products) {
-      const product = await Product.findById(item.productId);
-      if (!product) {
-        return res.status(404).json({ message: "Product Not Found" });
+    for (let item of products) {
+      const foundProduct = dbProducts.find(
+        (p) => p._id.toString() === item.productId
+      );
+
+      if (!foundProduct || foundProduct.stock < item.quantity) {
+        return res
+          .status(400)
+          .json({ message: `Stokta yeterli '${foundProduct?.name || "ürün"}' yok.` });
       }
-      totalAmount += product.price * item.quantity;
     }
 
-    const newOrder = new Order({
-      user,
+    // ✨ Stoğu azalt
+    for (let item of products) {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+
+    // ✨ Toplam Tutarı Hesapla
+    const totalAmount = products.reduce((acc, item) => {
+      const matchedProduct = dbProducts.find(p => p._id.toString() === item.productId);
+      return acc + matchedProduct.price * item.quantity;
+    }, 0);
+
+    const order = await Order.create({
+      user: req.user.id,
       products,
       totalAmount,
-      status: "pending",
     });
 
-    await newOrder.save();
-    res.status(201).json(newOrder);
+    res.status(201).json(order);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server Error" });
   }
 };
 
+
 exports.getOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user.clientId }).populate("products.productId");
+    const orders = await Order.find({ user: req.user.id }).populate("products.productId");
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: "Server Error" });
