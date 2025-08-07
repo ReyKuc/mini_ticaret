@@ -11,7 +11,7 @@ exports.createProduct = async (req, res) => {
       description,
       price,
       stock,
-      createdBy: req.user.id, // Burada req.user._id yerine req.user.id
+      createdBy: req.user.id, 
     });
 
     await product.save();
@@ -24,7 +24,7 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// Diğer metotlar aynı şekilde, değiştirmeye gerek yok
+
 exports.getAllProducts = async (req, res) => {
   try {
     const products = await Product.find();
