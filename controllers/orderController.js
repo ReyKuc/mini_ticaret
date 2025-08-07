@@ -24,14 +24,13 @@ exports.createOrder = async (req, res) => {
       }
     }
 
-    // ✨ Stoğu azalt
     for (let item of products) {
       await Product.findByIdAndUpdate(item.productId, {
         $inc: { stock: -item.quantity },
       });
     }
 
-    // ✨ Toplam Tutarı Hesapla
+    
     const totalAmount = products.reduce((acc, item) => {
       const matchedProduct = dbProducts.find(p => p._id.toString() === item.productId);
       return acc + matchedProduct.price * item.quantity;
